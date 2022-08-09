@@ -3,6 +3,7 @@ const app = express()
 const cors = require('cors')
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const moment = require('moment');
 require('dotenv').config()
 
 
@@ -25,12 +26,12 @@ app.get('/', (req, res) => {
 const userSchema = new mongoose.Schema(
   {
     username: { type : String, required: [true, "User Name is required!"] },
-    count: Number,
+    count: 0,
     log: [{
       description: String,
       duration: Number,
       date: String,
-    }]
+    }],
   }
 );
 
@@ -47,7 +48,7 @@ app.post('/api/users', (req, res) => {
       user.create({username: name}, (err, data) => {
         if (err) return console.error(err);
         res.json({username: data.username, _id: data._id});
-      });
+      })
     }
   });
 });
@@ -58,43 +59,91 @@ app.post('/api/users/:_id/exercises', (req, res) => {
   let duration = req.body.duration;
   let date = new Date(req.body.date).toDateString();
   user.findById(id, (err, data) => {
-    if (err) return console.error(err);
-
-    data.log.push({
+    if (err) {
+      res.string('ERROR: User doesnt exist!')
+    }
+    
+    else  {  data.log.push({
       description: des,
       duration: duration,
       date: date,
     });
-    data.__v++;
+    
     data.save((err, updated)=> {
-      if (err) return console.error(err);
+      if (err) return console.log(err);
+      if(updated) {
+        res.json({
+          _id: updated._id,
+          username: updated.username,
+          date: date,
+          duration: duration,
+          description: des,
+         
+       });
+      }
     });
-    res.json({
-      _id: data._id,
-      username: data.username,
-      date: date,
-      duration: duration,
-      description: description
-    });
+     }
   });
-});
+  });
 
-app.get('/api/users/:_id/logs?', (req, res)=> {
+app.get('/api/users/:_id/logs', (req, res)=> {
+  const {from, to, limit} = req.query;
   let id = req.params._id;
+  const startDate = moment(from)
+  const endDate = moment(to)
+  let d = startDate
   user.findById(id, (err, data) => {
-    if (err) return console.error(err);
+    if(err) return console.log(err);
+    let log = data.log;
+      if(from === undefined || to === undefined){
+        let array = [];
+        for(let i in log){
+          if(array >= limit){break;}
+          let info = {description: log[i]['description'],
+                      duration: log[i]['duration'], 
+                      date: log[i]['date']}
+        array.push(info);
+      }
     res.json({
-      _id: data._id,
-      username: data.username,
-      count: data.__v,
-      log: data.log
-    });
+    _id: data._id,
+    username: data.username,
+    count:  array.length,
+    log: array
   });
+  }
+    
+else {    let matches = [];
+  while (+d.toDate() < +endDate.toDate()) {
+    let next_date = (new Date(d).toDateString());
+    d = d.add(1, 'days')
+    for(let i in log){
+      if(log[i]['date'] === next_date){
+        if(matches >= limit){break;}
+        let info = {description: log[i]['description'],
+                      duration: log[i]['duration'], 
+                      date: log[i]['date']}
+        matches.push(info);
+      }
+    }
+  }
+  res.json({
+    _id: data._id,
+    username: data.username,
+    count:  matches.length,
+    log: matches
+  });}
+  })
 });
-
 
 app.get('/api/users', (req, res) => {
-  res.json([]);
+  user.find({}, (err, data) => {
+    if (err) {
+      res.send('NO Users in database');
+    }
+    else{
+      res.json(data);
+    }
+  });
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
