@@ -58,6 +58,9 @@ app.post('/api/users/:_id/exercises', (req, res) => {
   let des = req.body.description;
   let duration = req.body.duration;
   let date = new Date(req.body.date).toDateString();
+  if(!(req.body.date)){
+     date = new Date().toDateString();
+  }
   user.findById(id, (err, data) => {
     if (err) {
       res.string('ERROR: User doesnt exist!')
@@ -72,12 +75,13 @@ app.post('/api/users/:_id/exercises', (req, res) => {
     data.save((err, updated)=> {
       if (err) return console.log(err);
       if(updated) {
+        let index = (updated.log.length - 1)
         res.json({
           _id: updated._id,
           username: updated.username,
-          date: date,
-          duration: duration,
-          description: des,
+          date: updated.log[index]['date'],
+          duration: updated.log[index]['duration'],
+          description: updated.log[index]['description'],
          
        });
       }
@@ -101,7 +105,7 @@ app.get('/api/users/:_id/logs', (req, res)=> {
           if(array >= limit){break;}
           let info = {description: log[i]['description'],
                       duration: log[i]['duration'], 
-                      date: log[i]['date']}
+                      date: new Date((log[i]['date'])).toDateString()}
         array.push(info);
       }
     res.json({
@@ -121,7 +125,7 @@ else {    let matches = [];
         if(matches >= limit){break;}
         let info = {description: log[i]['description'],
                       duration: log[i]['duration'], 
-                      date: log[i]['date']}
+                      date: new Date((log[i]['date'])).toDateString()}
         matches.push(info);
       }
     }
